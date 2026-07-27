@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dashboard — GreatLife Portal</title>
+<link rel="stylesheet" href="css/style.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">GreatLife Portal<small>Recruiting &amp; Training System</small></div>
+  <nav>
+    <span id="welcome-name" style="margin-right:8px; opacity:0.85; font-size:0.9rem;"></span>
+    <button class="signout" onclick="signOut()">Sign Out</button>
+  </nav>
+</div>
+
+<div class="page">
+  <h1 id="greeting">Welcome back</h1>
+  <p class="section-note">Pick a section below. Everything you enter is saved automatically to your own private account — no one else on your team can see it.</p>
+
+  <div class="menu-grid">
+    <a class="menu-tile" href="real-goal.html">
+      <span class="tile-num">Start Here</span>
+      <h3>Real Goal Discovery</h3>
+      <p>Define the real reason you're building this business.</p>
+    </a>
+    <a class="menu-tile" href="goal-plan.html">
+      <span class="tile-num">Planning</span>
+      <h3>Goal Planning &amp; Breakdown</h3>
+      <p>Big Goal down to this week's target.</p>
+    </a>
+    <a class="menu-tile" href="weekly-tracker.html">
+      <span class="tile-num">Weekly</span>
+      <h3>Weekly Activity Tracker</h3>
+      <p>Log contacts, presentations, and follow-ups.</p>
+    </a>
+    <a class="menu-tile" href="training.html">
+      <span class="tile-num">Learning</span>
+      <h3>Training Modules</h3>
+      <p>Your lessons and completion progress.</p>
+    </a>
+    <a class="menu-tile" href="monthly-review.html">
+      <span class="tile-num">Monthly</span>
+      <h3>Monthly Review</h3>
+      <p>End-of-month totals and goal check.</p>
+    </a>
+    <a class="menu-tile" href="quarterly-review.html">
+      <span class="tile-num">Quarterly</span>
+      <h3>Quarterly Review</h3>
+      <p>Deep review with your sponsor.</p>
+    </a>
+    <a class="menu-tile" href="yearly-review.html">
+      <span class="tile-num">Yearly</span>
+      <h3>Yearly Review</h3>
+      <p>Full business snapshot for the year.</p>
+    </a>
+  </div>
+</div>
+
+<script src="js/supabase-client.js"></script>
+<script>
+  (async () => {
+    const session = await requireSession();
+    if (!session) return;
+    const member = await getOrCreateMemberRecord(session);
+    if (member) {
+      document.getElementById("greeting").textContent = `Welcome back, ${member.member_name.split(" ")[0]}`;
+      document.getElementById("welcome-name").textContent = member.member_name;
+    }
+  })();
+</script>
+
+</body>
+</html>

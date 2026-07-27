@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Goal Planning & Breakdown — GreatLife Portal</title>
+<link rel="stylesheet" href="css/style.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">GreatLife Portal<small>Recruiting &amp; Training System</small></div>
+  <nav>
+    <a href="dashboard.html">&larr; Dashboard</a>
+    <button class="signout" onclick="signOut()">Sign Out</button>
+  </nav>
+</div>
+
+<div class="page">
+  <h1>Goal Planning &amp; Breakdown</h1>
+  <p class="section-note">Break your Big Goal down into what has to happen this year, this quarter, this month, and this week. Each timeframe saves separately — update any of them any time.</p>
+
+  <div id="msg-area"></div>
+
+  <div id="timeframe-cards"></div>
+</div>
+
+<script src="js/supabase-client.js"></script>
+<script>
+  let currentMember = null;
+
+  const TIMEFRAMES = [
+    { key: "Big Goal", label: "Big Goal", helper: "The long-range destination — why you started this business." },
+    { key: "3-Year Target", label: "3-Year Target", helper: "Where this needs to be in 3 years to be on pace for the Big Goal." },
+    { key: "Yearly Target", label: "Yearly Target — Year 1", helper: "This year's target." },
+    { key: "Quarterly Target", label: "Quarterly Target", helper: "This quarter's target." },
+    { key: "Monthly Target", label: "Monthly Target", helper: "This month's target." },
+    { key: "Weekly Target", label: "Weekly Target", helper: "This week's target." },
+  ];
+
+  function showMsg(text, type) {
+    document.getElementById("msg-area").innerHTML = `<div class="msg ${type}">${text}</div>`;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  (async () => {
+    const session = await requireSession();
+    if (!session) return;
+    currentMember = await getOrCreateMemberRecord(session);
+    if (!currentMember) return;
+    await renderTimeframes();
+  })();
+
+  async function renderTimeframes() {
+    const { data: entries, error } = await supabaseClient
+      .from("goal_plan_entries")
+      .select("*")
+      .eq("member_id", currentMember.member_id);
+
+    if (error) { showMsg(error.message, "error"); return; }
+
+    const byTimeframe = {};
+    entries.forEach((e) => (byTimeframe[e.timeframe] = e));
+
+    const container = document.getElementById("timeframe-cards");
+    container.innerHTML = "";
+
+    TIMEFRAMES.forEach((tf) => {
+      const existing = byTimeframe[tf.key] || {};
+      const safeId = tf.key.replace(/[^a-z0-9]/gi, "-").toLowerCase();
+
+      const card = document.createElement("div");
+      card.className = "card";
+      card.innerHTML = `
+        <h2>${tf.label}</h2>
+        <p class="section-note" style="margin-top:-10px;">${tf.helper}</p>
+
+        <label for="desc-${safeId}">Goal Description</label>
+        <textarea id="desc-${safeId}">${existing.goal_description || ""}</textarea>
+
+        <div class="field-row">
+          <div>
+            <label for="date-${safeId}">Target Date</label>
+            <input type="date" id="date-${safeId}" value="${existing.target_date || ""}" />
+          </div>
+          <div>
+            <label for="leads-${safeId}">Contacts / Week Required</label>
+            <input type="number" id="leads-${safeId}" value="${existing.leads_contacts_required_per_week ?? ""}" />
+          </div>
+          <div>
+            <label for="pres-${safeId}">Presentations / Week Required</label>
+            <input type="number" id="pres-${safeId}" value="${existing.presentations_required_per_week ?? ""}" />
+          </div>
+        </div>
+
+        <label for="notes-${safeId}">Notes / Obstacles to Plan For</label>
+        <textarea id="notes-${safeId}">${existing.notes_obstacles || ""}</textarea>
+
+        <button class="btn secondary" style="margin-top:12px;" data-timeframe="${tf.key}" data-safe-id="${safeId}">
+          Save ${tf.label}
+        </button>
+      `;
+      container.appendChild(card);
+    });
+
+    container.querySelectorAll("button[data-timeframe]").forEach((btn) => {
+      btn.addEventListener("click", () => saveTimeframe(btn.dataset.timeframe, btn.dataset.safeId));
+    });
+  }
+
+  async function saveTimeframe(timeframe, safeId) {
+    const payload = {
+      member_id: currentMember.member_id,
+      timeframe,
+      goal_description: document.getElementById(`desc-${safeId}`).value,
+      target_date: document.getElementById(`date-${safeId}`).value || null,
+      leads_contacts_required_per_week: document.getElementById(`leads-${safeId}`).value || null,
+      presentations_required_per_week: document.getElementById(`pres-${safeId}`).value || null,
+      notes_obstacles: document.getElementById(`notes-${safeId}`).value,
+    };
+
+    // Check if a row already exists for this member+timeframe (no unique constraint
+    // in schema on member_id+timeframe, so we look it up manually to avoid duplicates).
+    const { data: existingRows, error: findErr } = await supabaseClient
+      .from("goal_plan_entries")
+      .select("entry_id")
+      .eq("member_id", currentMember.member_id)
+      .eq("timeframe", timeframe);
+
+    if (findErr) { showMsg(findErr.message, "error"); return; }
+
+    let error;
+    if (existingRows && existingRows.length > 0) {
+      ({ error } = await supabaseClient
+        .from("goal_plan_entries")
+        .update(payload)
+        .eq("entry_id", existingRows[0].entry_id));
+    } else {
+      ({ error } = await supabaseClient.from("goal_plan_entries").insert(payload));
+    }
+
+    if (error) {
+      showMsg(error.message, "error");
+    } else {
+      showMsg(`${timeframe} saved.`, "success");
+    }
+  }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Weekly Tracker — GreatLife Portal</title>
+<link rel="stylesheet" href="css/style.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">GreatLife Portal<small>Recruiting &amp; Training System</small></div>
+  <nav>
+    <a href="dashboard.html">&larr; Dashboard</a>
+    <button class="signout" onclick="signOut()">Sign Out</button>
+  </nav>
+</div>
+
+<div class="page">
+  <h1>Weekly Activity Tracker</h1>
+  <p class="section-note">Pick a week, set your targets, and log contacts as you make them. Totals below update automatically — you never type them in.</p>
+
+  <div id="msg-area"></div>
+
+  <div class="card">
+    <h2>Select / Start a Week</h2>
+    <div class="field-row">
+      <div>
+        <label for="week-number">Week #</label>
+        <input type="number" id="week-number" min="1" />
+      </div>
+      <div>
+        <label for="week-month">Month</label>
+        <input type="text" id="week-month" placeholder="e.g. July 2026" />
+      </div>
+      <div>
+        <label for="checkin-date">Sponsor Check-In Date</label>
+        <input type="date" id="checkin-date" />
+      </div>
+    </div>
+    <button class="btn secondary" id="load-week-btn" style="margin-top:14px;">Load / Create This Week</button>
+  </div>
+
+  <div id="week-detail" style="display:none;">
+
+    <div class="card">
+      <h2>This Week's Targets</h2>
+      <div class="field-row">
+        <div><label for="t-contacts">Contacts Target</label><input type="number" id="t-contacts" /></div>
+        <div><label for="t-pres">Presentations Target</label><input type="number" id="t-pres" /></div>
+        <div><label for="t-followups">Follow-Ups Target</label><input type="number" id="t-followups" /></div>
+        <div><label for="t-customers">New Customers Target</label><input type="number" id="t-customers" /></div>
+      </div>
+      <button class="btn secondary" id="save-targets-btn" style="margin-top:14px;">Save Targets</button>
+    </div>
+
+    <div class="card">
+      <h2>This Week's Totals <span style="font-weight:400; font-size:0.8rem; color:var(--ink-dim);">(calculated from your contact log below)</span></h2>
+      <div class="field-row" id="totals-display"></div>
+    </div>
+
+    <div class="card">
+      <h2>Add a Contact</h2>
+      <div class="field-row">
+        <div><label for="c-name">Name</label><input type="text" id="c-name" /></div>
+        <div><label for="c-datetime">Date &amp; Time</label><input type="datetime-local" id="c-datetime" /></div>
+        <div>
+          <label for="c-type">Type</label>
+          <select id="c-type">
+            <option value="New">New</option>
+            <option value="Follow-Up">Follow-Up</option>
+            <option value="Presentation">Presentation</option>
+          </select>
+        </div>
+        <div><label for="c-followup">Follow-Up Date</label><input type="date" id="c-followup" /></div>
+      </div>
+      <label for="c-result">Result / Response</label>
+      <input type="text" id="c-result" />
+      <label for="c-notes">Notes</label>
+      <textarea id="c-notes"></textarea>
+      <button class="btn" id="add-contact-btn" style="margin-top:14px;">Add Contact to Log</button>
+    </div>
+
+    <div class="card">
+      <h2>Contact Log</h2>
+      <table>
+        <thead>
+          <tr><th>Name</th><th>Date/Time</th><th>Type</th><th>Result</th><th>Follow-Up</th><th></th></tr>
+        </thead>
+        <tbody id="contact-log-body"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>Weekly Wrap-Up</h2>
+      <label for="worked-well">What Worked Well</label>
+      <textarea id="worked-well"></textarea>
+      <label for="got-in-way">What Got in the Way</label>
+      <textarea id="got-in-way"></textarea>
+      <label for="adjusted-plan">Adjusted Plan for Next Week</label>
+      <textarea id="adjusted-plan"></textarea>
+
+      <h2 style="margin-top:24px;">Sponsor Check-In Notes</h2>
+      <label for="q1">Q1: Did you hit your weekly target?</label>
+      <textarea id="q1"></textarea>
+      <label for="q2">Q2: What got in the way, if anything?</label>
+      <textarea id="q2"></textarea>
+      <label for="q3">Q3: What's your target for next week, and what do you need from your sponsor?</label>
+      <textarea id="q3"></textarea>
+
+      <button class="btn" id="save-wrapup-btn" style="margin-top:14px;">Save Wrap-Up &amp; Check-In</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/supabase-client.js"></script>
+<script>
+  let currentMember = null;
+  let currentWeek = null;
+
+  function showMsg(text, type) {
+    document.getElementById("msg-area").innerHTML = `<div class="msg ${type}">${text}</div>`;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  (async () => {
+    const session = await requireSession();
+    if (!session) return;
+    currentMember = await getOrCreateMemberRecord(session);
+  })();
+
+  document.getElementById("load-week-btn").addEventListener("click", async () => {
+    if (!currentMember) return;
+    const weekNumber = parseInt(document.getElementById("week-number").value, 10);
+    const month = document.getElementById("week-month").value.trim();
+    if (!weekNumber || !month) {
+      showMsg("Enter both a week number and a month first.", "error");
+      return;
+    }
+
+    const { data: existing, error: fetchErr } = await supabaseClient
+      .from("weekly_tracker")
+      .select("*")
+      .eq("member_id", currentMember.member_id)
+      .eq("week_number", weekNumber)
+      .eq("month", month)
+      .maybeSingle();
+
+    if (fetchErr) { showMsg(fetchErr.message, "error"); return; }
+
+    if (existing) {
+      currentWeek = existing;
+    } else {
+      const { data: created, error: createErr } = await supabaseClient
+        .from("weekly_tracker")
+        .insert({ member_id: currentMember.member_id, week_number: weekNumber, month })
+        .select()
+        .single();
+      if (createErr) { showMsg(createErr.message, "error"); return; }
+      currentWeek = created;
+    }
+
+    populateWeekDetail();
+    await loadContactLog();
+    document.getElementById("week-detail").style.display = "block";
+    showMsg(`Loaded Week ${weekNumber} — ${month}.`, "success");
+  });
+
+  function populateWeekDetail() {
+    document.getElementById("checkin-date").value = currentWeek.sponsor_checkin_date || "";
+    document.getElementById("t-contacts").value = currentWeek.contacts_target ?? "";
+    document.getElementById("t-pres").value = currentWeek.presentations_target ?? "";
+    document.getElementById("t-followups").value = currentWeek.followups_target ?? "";
+    document.getElementById("t-customers").value = currentWeek.new_customers_target ?? "";
+    document.getElementById("worked-well").value = currentWeek.what_worked_well || "";
+    document.getElementById("got-in-way").value = currentWeek.what_got_in_the_way || "";
+    document.getElementById("adjusted-plan").value = currentWeek.adjusted_plan_next_week || "";
+    renderTotals();
+  }
+
+  function renderTotals() {
+    document.getElementById("totals-display").innerHTML = `
+      <div><strong>Contacts:</strong> ${currentWeek.total_contacts}</div>
+      <div><strong>Presentations:</strong> ${currentWeek.total_presentations}</div>
+      <div><strong>Follow-Ups:</strong> ${currentWeek.total_followups}</div>
+      <div><strong>New Customers:</strong> ${currentWeek.new_customers_this_week}</div>
+    `;
+  }
+
+  document.getElementById("save-targets-btn").addEventListener("click", async () => {
+    if (!currentWeek) return;
+    const updates = {
+      sponsor_checkin_date: document.getElementById("checkin-date").value || null,
+      contacts_target: document.getElementById("t-contacts").value || null,
+      presentations_target: document.getElementById("t-pres").value || null,
+      followups_target: document.getElementById("t-followups").value || null,
+      new_customers_target: document.getElementById("t-customers").value || null,
+    };
+    const { data, error } = await supabaseClient
+      .from("weekly_tracker")
+      .update(updates)
+      .eq("week_id", currentWeek.week_id)
+      .select()
+      .single();
+    if (error) { showMsg(error.message, "error"); return; }
+    currentWeek = data;
+    showMsg("Targets saved.", "success");
+  });
+
+  async function loadContactLog() {
+    const { data, error } = await supabaseClient
+      .from("daily_contact_log")
+      .select("*")
+      .eq("week_id", currentWeek.week_id)
+      .order("date_time", { ascending: true });
+    if (error) { showMsg(error.message, "error"); return; }
+
+    const tbody = document.getElementById("contact-log-body");
+    tbody.innerHTML = "";
+    data.forEach((row) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${row.contact_name || ""}</td>
+        <td>${row.date_time ? new Date(row.date_time).toLocaleString() : ""}</td>
+        <td>${row.contact_type || ""}</td>
+        <td>${row.result_response || ""}</td>
+        <td>${row.followup_date || ""}</td>
+        <td><button class="btn secondary" data-log-id="${row.log_id}" style="padding:4px 10px; font-size:0.8rem;">Delete</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    tbody.querySelectorAll("button[data-log-id]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const { error } = await supabaseClient
+          .from("daily_contact_log")
+          .delete()
+          .eq("log_id", btn.dataset.logId);
+        if (error) { showMsg(error.message, "error"); return; }
+        await refreshWeekTotals();
+        await loadContactLog();
+      });
+    });
+  }
+
+  document.getElementById("add-contact-btn").addEventListener("click", async () => {
+    if (!currentWeek) return;
+    const payload = {
+      week_id: currentWeek.week_id,
+      contact_name: document.getElementById("c-name").value,
+      date_time: document.getElementById("c-datetime").value || null,
+      contact_type: document.getElementById("c-type").value,
+      result_response: document.getElementById("c-result").value,
+      notes: document.getElementById("c-notes").value,
+      followup_date: document.getElementById("c-followup").value || null,
+    };
+    const { error } = await supabaseClient.from("daily_contact_log").insert(payload);
+    if (error) { showMsg(error.message, "error"); return; }
+
+    ["c-name", "c-datetime", "c-result", "c-notes", "c-followup"].forEach(
+      (id) => (document.getElementById(id).value = "")
+    );
+
+    await refreshWeekTotals();
+    await loadContactLog();
+    showMsg("Contact added.", "success");
+  });
+
+  // Recalculates the weekly_tracker total_* columns from the contact log.
+  // (Doing this client-side for now; a Postgres trigger is the more robust
+  // long-term home for this logic and is a good next hardening step.)
+  async function refreshWeekTotals() {
+    const { data, error } = await supabaseClient
+      .from("daily_contact_log")
+      .select("contact_type")
+      .eq("week_id", currentWeek.week_id);
+    if (error) { showMsg(error.message, "error"); return; }
+
+    const totals = { contacts: data.length, presentations: 0, followups: 0 };
+    data.forEach((r) => {
+      if (r.contact_type === "Presentation") totals.presentations++;
+      if (r.contact_type === "Follow-Up") totals.followups++;
+    });
+
+    const { data: updated, error: updErr } = await supabaseClient
+      .from("weekly_tracker")
+      .update({
+        total_contacts: totals.contacts,
+        total_presentations: totals.presentations,
+        total_followups: totals.followups,
+      })
+      .eq("week_id", currentWeek.week_id)
+      .select()
+      .single();
+    if (updErr) { showMsg(updErr.message, "error"); return; }
+    currentWeek = updated;
+    renderTotals();
+  }
+
+  document.getElementById("save-wrapup-btn").addEventListener("click", async () => {
+    if (!currentWeek) return;
+
+    const { error: weekErr } = await supabaseClient
+      .from("weekly_tracker")
+      .update({
+        what_worked_well: document.getElementById("worked-well").value,
+        what_got_in_the_way: document.getElementById("got-in-way").value,
+        adjusted_plan_next_week: document.getElementById("adjusted-plan").value,
+      })
+      .eq("week_id", currentWeek.week_id);
+    if (weekErr) { showMsg(weekErr.message, "error"); return; }
+
+    const { error: checkinErr } = await supabaseClient
+      .from("sponsor_checkin_notes")
+      .upsert({
+        week_id: currentWeek.week_id,
+        q1_target_hit: document.getElementById("q1").value,
+        q2_what_got_in_way: document.getElementById("q2").value,
+        q3_next_target_and_needs: document.getElementById("q3").value,
+      }, { onConflict: "week_id" });
+    if (checkinErr) { showMsg(checkinErr.message, "error"); return; }
+
+    showMsg("Weekly wrap-up and check-in notes saved.", "success");
+  });
+</script>
+
+</body>
+</html>

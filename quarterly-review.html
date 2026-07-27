@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Quarterly Review — GreatLife Portal</title>
+<link rel="stylesheet" href="css/style.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">GreatLife Portal<small>Recruiting &amp; Training System</small></div>
+  <nav>
+    <a href="dashboard.html">&larr; Dashboard</a>
+    <button class="signout" onclick="signOut()">Sign Out</button>
+  </nav>
+</div>
+
+<div class="page">
+  <h1>Quarterly Review</h1>
+  <p class="section-note">Complete at the end of each quarter — deep review with your sponsor.</p>
+
+  <div id="msg-area"></div>
+
+  <div class="card">
+    <h2>Select Quarter</h2>
+    <div class="field-row">
+      <div>
+        <label for="quarter-year">Quarter &amp; Year</label>
+        <input type="text" id="quarter-year" placeholder="e.g. 2026-Q3" />
+      </div>
+      <div>
+        <label for="quarter-goal">Quarterly Goal (from Goal Sheet)</label>
+        <input type="text" id="quarter-goal" />
+      </div>
+      <div>
+        <label for="review-date">Review Date with Sponsor</label>
+        <input type="date" id="review-date" />
+      </div>
+    </div>
+    <button class="btn secondary" id="load-btn" style="margin-top:14px;">Load / Create This Quarter</button>
+  </div>
+
+  <div id="detail" style="display:none;">
+    <div class="card">
+      <h2>Quarterly Totals</h2>
+      <div class="field-row">
+        <div><label for="t-contacts">Total Contacts</label><input type="number" id="t-contacts" /></div>
+        <div><label for="t-pres">Total Presentations</label><input type="number" id="t-pres" /></div>
+        <div><label for="t-customers">Total New Customers</label><input type="number" id="t-customers" /></div>
+        <div><label for="t-team">Total New Team Members</label><input type="number" id="t-team" /></div>
+      </div>
+      <div class="field-row" style="margin-top:16px;">
+        <div><label for="t-reorders">Total Reorders</label><input type="number" id="t-reorders" /></div>
+        <div><label for="t-income">Estimated Monthly Income Now</label><input type="number" step="0.01" id="t-income" /></div>
+        <div><label for="t-teamsize">Total Team Size</label><input type="number" id="t-teamsize" /></div>
+      </div>
+      <label for="t-downline">We Build Downline — Total Results</label>
+      <textarea id="t-downline"></textarea>
+    </div>
+
+    <div class="card">
+      <h2>Quarterly Goal Achievement</h2>
+      <label for="result-achieved">Result Achieved</label>
+      <textarea id="result-achieved"></textarea>
+      <label for="goal-status">Goal Status</label>
+      <select id="goal-status">
+        <option value="">— Select —</option>
+        <option value="Achieved">Achieved</option>
+        <option value="Partially Achieved">Partially Achieved</option>
+        <option value="Not Achieved">Not Achieved</option>
+      </select>
+      <label for="biggest-win">Biggest Win This Quarter</label>
+      <textarea id="biggest-win"></textarea>
+      <label for="biggest-challenge">Biggest Challenge This Quarter</label>
+      <textarea id="biggest-challenge"></textarea>
+      <label for="do-differently">What I Will Do Differently Next Quarter</label>
+      <textarea id="do-differently"></textarea>
+    </div>
+
+    <div class="card">
+      <h2>Real Goal Check — Quarterly Alignment</h2>
+      <label for="real-goal-check">Has my Real Goal changed or deepened this quarter?</label>
+      <textarea id="real-goal-check"></textarea>
+      <label style="display:flex; align-items:center; gap:8px; margin-top:12px;">
+        <input type="checkbox" id="still-on-track" style="width:18px; height:18px;" />
+        <span>Still on track</span>
+      </label>
+    </div>
+
+    <button class="btn" id="save-btn">Save Quarterly Review</button>
+  </div>
+</div>
+
+<script src="js/supabase-client.js"></script>
+<script>
+  let currentMember = null;
+  let currentReview = null;
+
+  function showMsg(text, type) {
+    document.getElementById("msg-area").innerHTML = `<div class="msg ${type}">${text}</div>`;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  (async () => {
+    const session = await requireSession();
+    if (!session) return;
+    currentMember = await getOrCreateMemberRecord(session);
+  })();
+
+  document.getElementById("load-btn").addEventListener("click", async () => {
+    const quarterYear = document.getElementById("quarter-year").value.trim();
+    if (!quarterYear) { showMsg("Enter a quarter/year first (e.g. 2026-Q3).", "error"); return; }
+
+    const { data: existing, error: fetchErr } = await supabaseClient
+      .from("quarterly_review")
+      .select("*")
+      .eq("member_id", currentMember.member_id)
+      .eq("quarter_year", quarterYear)
+      .maybeSingle();
+    if (fetchErr) { showMsg(fetchErr.message, "error"); return; }
+
+    if (existing) {
+      currentReview = existing;
+    } else {
+      const { data: created, error: createErr } = await supabaseClient
+        .from("quarterly_review")
+        .insert({ member_id: currentMember.member_id, quarter_year: quarterYear })
+        .select()
+        .single();
+      if (createErr) { showMsg(createErr.message, "error"); return; }
+      currentReview = created;
+    }
+
+    populateDetail();
+    document.getElementById("detail").style.display = "block";
+    showMsg(`Loaded ${quarterYear}.`, "success");
+  });
+
+  function populateDetail() {
+    document.getElementById("quarter-goal").value = currentReview.quarter_goal || "";
+    document.getElementById("review-date").value = currentReview.review_date || "";
+    document.getElementById("t-contacts").value = currentReview.total_contacts ?? "";
+    document.getElementById("t-pres").value = currentReview.total_presentations ?? "";
+    document.getElementById("t-customers").value = currentReview.total_new_customers ?? "";
+    document.getElementById("t-team").value = currentReview.total_new_team_members ?? "";
+    document.getElementById("t-reorders").value = currentReview.total_reorders ?? "";
+    document.getElementById("t-income").value = currentReview.estimated_monthly_income ?? "";
+    document.getElementById("t-teamsize").value = currentReview.total_team_size ?? "";
+    document.getElementById("t-downline").value = currentReview.downline_build_results || "";
+    document.getElementById("result-achieved").value = currentReview.result_achieved || "";
+    document.getElementById("goal-status").value = currentReview.goal_status || "";
+    document.getElementById("biggest-win").value = currentReview.biggest_win || "";
+    document.getElementById("biggest-challenge").value = currentReview.biggest_challenge || "";
+    document.getElementById("do-differently").value = currentReview.what_will_do_differently || "";
+    document.getElementById("real-goal-check").value = currentReview.real_goal_check_text || "";
+    document.getElementById("still-on-track").checked = !!currentReview.still_on_track;
+  }
+
+  document.getElementById("save-btn").addEventListener("click", async () => {
+    if (!currentReview) return;
+    const updates = {
+      quarter_goal: document.getElementById("quarter-goal").value,
+      review_date: document.getElementById("review-date").value || null,
+      total_contacts: document.getElementById("t-contacts").value || null,
+      total_presentations: document.getElementById("t-pres").value || null,
+      total_new_customers: document.getElementById("t-customers").value || null,
+      total_new_team_members: document.getElementById("t-team").value || null,
+      total_reorders: document.getElementById("t-reorders").value || null,
+      estimated_monthly_income: document.getElementById("t-income").value || null,
+      total_team_size: document.getElementById("t-teamsize").value || null,
+      downline_build_results: document.getElementById("t-downline").value,
+      result_achieved: document.getElementById("result-achieved").value,
+      goal_status: document.getElementById("goal-status").value,
+      biggest_win: document.getElementById("biggest-win").value,
+      biggest_challenge: document.getElementById("biggest-challenge").value,
+      what_will_do_differently: document.getElementById("do-differently").value,
+      real_goal_check_text: document.getElementById("real-goal-check").value,
+      still_on_track: document.getElementById("still-on-track").checked,
+    };
+    const { error } = await supabaseClient
+      .from("quarterly_review")
+      .update(updates)
+      .eq("review_id", currentReview.review_id);
+    if (error) { showMsg(error.message, "error"); return; }
+    showMsg("Quarterly review saved.", "success");
+  });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Training Modules — GreatLife Portal</title>
+<link rel="stylesheet" href="css/style.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">GreatLife Portal<small>Recruiting &amp; Training System</small></div>
+  <nav>
+    <a href="dashboard.html">&larr; Dashboard</a>
+    <button class="signout" onclick="signOut()">Sign Out</button>
+  </nav>
+</div>
+
+<div class="page">
+  <h1>Training Modules</h1>
+  <p class="section-note">Work through these in order. Your sponsor can flag a lesson as a priority for your Real Goal.</p>
+
+  <div id="msg-area"></div>
+
+  <div class="card">
+    <h2>Overall Progress</h2>
+    <div id="overall-progress"></div>
+  </div>
+
+  <div id="module-list"></div>
+</div>
+
+<script src="js/supabase-client.js"></script>
+<script>
+  let currentMember = null;
+
+  function showMsg(text, type) {
+    document.getElementById("msg-area").innerHTML = `<div class="msg ${type}">${text}</div>`;
+  }
+
+  (async () => {
+    const session = await requireSession();
+    if (!session) return;
+    currentMember = await getOrCreateMemberRecord(session);
+    if (!currentMember) return;
+    await loadModules();
+  })();
+
+  async function loadModules() {
+    const { data: modules, error: modErr } = await supabaseClient
+      .from("training_modules")
+      .select("*")
+      .order("order_index", { ascending: true });
+    if (modErr) { showMsg(modErr.message, "error"); return; }
+
+    const { data: progress, error: progErr } = await supabaseClient
+      .from("member_training_progress")
+      .select("*")
+      .eq("member_id", currentMember.member_id);
+    if (progErr) { showMsg(progErr.message, "error"); return; }
+
+    const progressByModule = {};
+    progress.forEach((p) => (progressByModule[p.module_id] = p));
+
+    if (!modules.length) {
+      document.getElementById("module-list").innerHTML =
+        `<div class="card"><p>No training modules are loaded yet. Once the training manual sections are seeded into the database, they'll appear here automatically.</p></div>`;
+      document.getElementById("overall-progress").innerHTML = "";
+      return;
+    }
+
+    const completedCount = modules.filter((m) => progressByModule[m.module_id]?.is_completed).length;
+    const pct = Math.round((completedCount / modules.length) * 100);
+    document.getElementById("overall-progress").innerHTML = `
+      <div>${completedCount} of ${modules.length} lessons complete (${pct}%)</div>
+      <div class="progress-bar"><div style="width:${pct}%"></div></div>
+    `;
+
+    const listEl = document.getElementById("module-list");
+    listEl.innerHTML = "";
+
+    modules.forEach((mod) => {
+      const p = progressByModule[mod.module_id];
+      const isDone = p?.is_completed || false;
+      const div = document.createElement("div");
+      div.className = "card";
+      div.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+          <div>
+            <span class="tile-num" style="color:var(--brass);">${mod.section_number}</span>
+            <h3 style="margin:2px 0 4px;">${mod.title}</h3>
+            ${mod.contains_script ? '<p style="margin:0; font-size:0.82rem; color:var(--ink-dim);">Includes scripts</p>' : ""}
+            ${p?.is_priority_for_goal ? `<p style="margin:6px 0 0; font-size:0.85rem; color:var(--brass);"><strong>Sponsor priority:</strong> ${p.priority_reason || "Flagged as relevant to your Real Goal."}</p>` : ""}
+            ${mod.pdf_url ? `<p style="margin:8px 0 0;"><a href="${mod.pdf_url}" target="_blank" rel="noopener">Open lesson${mod.pdf_page_number ? " (p. " + mod.pdf_page_number + ")" : ""}</a></p>` : ""}
+          </div>
+          <label style="display:flex; align-items:center; gap:8px; white-space:nowrap; margin:0;">
+            <input type="checkbox" data-module-id="${mod.module_id}" ${isDone ? "checked" : ""} style="width:18px; height:18px;" />
+            <span style="font-size:0.85rem; font-weight:600;">Complete</span>
+          </label>
+        </div>
+      `;
+      listEl.appendChild(div);
+    });
+
+    listEl.querySelectorAll("input[type=checkbox]").forEach((box) => {
+      box.addEventListener("change", async () => {
+        const moduleId = box.dataset.moduleId;
+        const isCompleted = box.checked;
+        const { error } = await supabaseClient
+          .from("member_training_progress")
+          .upsert({
+            member_id: currentMember.member_id,
+            module_id: moduleId,
+            is_completed: isCompleted,
+            completed_date: isCompleted ? new Date().toISOString().slice(0, 10) : null,
+            last_viewed_at: new Date().toISOString(),
+          }, { onConflict: "member_id,module_id" });
+        if (error) { showMsg(error.message, "error"); return; }
+        await loadModules();
+      });
+    });
+  }
+</script>
+
+</body>
+</html>

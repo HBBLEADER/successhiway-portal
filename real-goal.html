@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Real Goal Discovery — GreatLife Portal</title>
+<link rel="stylesheet" href="css/style.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">GreatLife Portal<small>Recruiting &amp; Training System</small></div>
+  <nav>
+    <a href="dashboard.html">&larr; Dashboard</a>
+    <button class="signout" onclick="signOut()">Sign Out</button>
+  </nav>
+</div>
+
+<div class="page">
+  <h1>Real Goal Discovery</h1>
+  <p class="section-note">Complete this once, at the start. Come back any time to update it as your reason deepens.</p>
+
+  <div id="msg-area"></div>
+
+  <form id="goal-form">
+    <div class="card">
+      <h2>Round 1 — Surface Answer</h2>
+      <label for="round1">Why do you want to build this business?
+        <span class="hint">Write the first answer that comes to mind.</span>
+      </label>
+      <textarea id="round1"></textarea>
+    </div>
+
+    <div class="card">
+      <h2>Round 2 — Go Deeper</h2>
+      <label for="round2">Why does that matter to you?
+        <span class="hint">Push past the first answer — what's underneath it?</span>
+      </label>
+      <textarea id="round2"></textarea>
+    </div>
+
+    <div class="card">
+      <h2>Round 3 — The Real Reason</h2>
+      <label for="round3">What happens in your life if this doesn't work out?
+        <span class="hint">This is usually where the real goal shows up.</span>
+      </label>
+      <textarea id="round3"></textarea>
+    </div>
+
+    <div class="card">
+      <h2>The Real Goal</h2>
+      <label for="real-goal-text">My Real Goal — exact words
+        <span class="hint">Say it in your own words, the way you'd say it out loud.</span>
+      </label>
+      <textarea id="real-goal-text"></textarea>
+
+      <label for="why-it-matters">Why This Matters</label>
+      <textarea id="why-it-matters"></textarea>
+    </div>
+
+    <div class="card">
+      <h2>Sign-Off</h2>
+      <div class="field-row">
+        <div>
+          <label for="member-sig-date">Member Signature Date</label>
+          <input type="date" id="member-sig-date" />
+        </div>
+        <div>
+          <label for="sponsor-sig-date">Sponsor Signature Date</label>
+          <input type="date" id="sponsor-sig-date" />
+        </div>
+      </div>
+    </div>
+
+    <button type="submit" class="btn">Save Real Goal Discovery</button>
+  </form>
+</div>
+
+<script src="js/supabase-client.js"></script>
+<script>
+  let currentMember = null;
+
+  function showMsg(text, type) {
+    document.getElementById("msg-area").innerHTML = `<div class="msg ${type}">${text}</div>`;
+  }
+
+  (async () => {
+    const session = await requireSession();
+    if (!session) return;
+    currentMember = await getOrCreateMemberRecord(session);
+    if (!currentMember) return;
+
+    const { data: existing, error } = await supabaseClient
+      .from("real_goal_discovery")
+      .select("*")
+      .eq("member_id", currentMember.member_id)
+      .maybeSingle();
+
+    if (error) {
+      showMsg("Couldn't load your existing entry: " + error.message, "error");
+      return;
+    }
+
+    if (existing) {
+      document.getElementById("round1").value = existing.round1_answer || "";
+      document.getElementById("round2").value = existing.round2_answer || "";
+      document.getElementById("round3").value = existing.round3_answer || "";
+      document.getElementById("real-goal-text").value = existing.real_goal_text || "";
+      document.getElementById("why-it-matters").value = existing.why_it_matters || "";
+      document.getElementById("member-sig-date").value = existing.member_signature_date || "";
+      document.getElementById("sponsor-sig-date").value = existing.sponsor_signature_date || "";
+    }
+  })();
+
+  document.getElementById("goal-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!currentMember) return;
+
+    const payload = {
+      member_id: currentMember.member_id,
+      round1_answer: document.getElementById("round1").value,
+      round2_answer: document.getElementById("round2").value,
+      round3_answer: document.getElementById("round3").value,
+      real_goal_text: document.getElementById("real-goal-text").value,
+      why_it_matters: document.getElementById("why-it-matters").value,
+      member_signature_date: document.getElementById("member-sig-date").value || null,
+      sponsor_signature_date: document.getElementById("sponsor-sig-date").value || null,
+    };
+
+    const { error } = await supabaseClient
+      .from("real_goal_discovery")
+      .upsert(payload, { onConflict: "member_id" });
+
+    if (error) {
+      showMsg("Couldn't save: " + error.message, "error");
+    } else {
+      showMsg("Saved.", "success");
+    }
+  });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Yearly Review — GreatLife Portal</title>
+<link rel="stylesheet" href="css/style.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">GreatLife Portal<small>Recruiting &amp; Training System</small></div>
+  <nav>
+    <a href="dashboard.html">&larr; Dashboard</a>
+    <button class="signout" onclick="signOut()">Sign Out</button>
+  </nav>
+</div>
+
+<div class="page">
+  <h1>Yearly Review</h1>
+  <p class="section-note">Complete at the end of each year — full business review.</p>
+
+  <div id="msg-area"></div>
+
+  <div class="card">
+    <h2>Select Year</h2>
+    <div class="field-row">
+      <div>
+        <label for="year">Year</label>
+        <input type="number" id="year" placeholder="e.g. 2026" />
+      </div>
+      <div>
+        <label for="year-goal">Yearly Goal (from Goal Sheet)</label>
+        <input type="text" id="year-goal" />
+      </div>
+      <div>
+        <label for="review-date">Review Date with Sponsor</label>
+        <input type="date" id="review-date" />
+      </div>
+    </div>
+    <button class="btn secondary" id="load-btn" style="margin-top:14px;">Load / Create This Year</button>
+  </div>
+
+  <div id="detail" style="display:none;">
+    <div class="card">
+      <h2>Yearly Totals &amp; Business Snapshot</h2>
+      <div class="field-row">
+        <div><label for="t-contacts">Total Contacts</label><input type="number" id="t-contacts" /></div>
+        <div><label for="t-pres">Total Presentations</label><input type="number" id="t-pres" /></div>
+        <div><label for="t-customers">Total New Customers</label><input type="number" id="t-customers" /></div>
+        <div><label for="t-team">Total New Team Members</label><input type="number" id="t-team" /></div>
+      </div>
+      <div class="field-row" style="margin-top:16px;">
+        <div><label for="t-reorders">Total Reorders</label><input type="number" id="t-reorders" /></div>
+        <div><label for="t-teamsize">Total Team Size (End of Year)</label><input type="number" id="t-teamsize" /></div>
+        <div><label for="t-monthly-income">Monthly Residual Income (Now)</label><input type="number" step="0.01" id="t-monthly-income" /></div>
+      </div>
+      <label for="t-downline">We Build Downline — Total Results</label>
+      <textarea id="t-downline"></textarea>
+    </div>
+
+    <div class="card">
+      <h2>Yearly Goal Achievement</h2>
+      <label for="result-achieved">Result Achieved</label>
+      <textarea id="result-achieved"></textarea>
+      <label for="goal-status">Goal Status</label>
+      <select id="goal-status">
+        <option value="">— Select —</option>
+        <option value="Achieved">Achieved</option>
+        <option value="Partially Achieved">Partially Achieved</option>
+        <option value="Not Achieved">Not Achieved</option>
+      </select>
+      <label for="biggest-win">Single Biggest Win This Year</label>
+      <textarea id="biggest-win"></textarea>
+      <label for="biggest-challenge">Single Biggest Challenge This Year</label>
+      <textarea id="biggest-challenge"></textarea>
+      <label for="lesson-learned">Most Important Lesson Learned / Commitment for Year 2</label>
+      <textarea id="lesson-learned"></textarea>
+    </div>
+
+    <div class="card">
+      <h2>Real Goal Check — Yearly Alignment</h2>
+      <label for="real-goal-check">How much closer am I to my Real Goal than I was 12 months ago?</label>
+      <textarea id="real-goal-check"></textarea>
+      <label style="display:flex; align-items:center; gap:8px; margin-top:12px;">
+        <input type="checkbox" id="still-on-track" style="width:18px; height:18px;" />
+        <span>Still on track</span>
+      </label>
+    </div>
+
+    <button class="btn" id="save-btn">Save Yearly Review</button>
+  </div>
+</div>
+
+<script src="js/supabase-client.js"></script>
+<script>
+  let currentMember = null;
+  let currentReview = null;
+
+  function showMsg(text, type) {
+    document.getElementById("msg-area").innerHTML = `<div class="msg ${type}">${text}</div>`;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  (async () => {
+    const session = await requireSession();
+    if (!session) return;
+    currentMember = await getOrCreateMemberRecord(session);
+  })();
+
+  document.getElementById("load-btn").addEventListener("click", async () => {
+    const year = parseInt(document.getElementById("year").value, 10);
+    if (!year) { showMsg("Enter a year first.", "error"); return; }
+
+    const { data: existing, error: fetchErr } = await supabaseClient
+      .from("yearly_review")
+      .select("*")
+      .eq("member_id", currentMember.member_id)
+      .eq("year", year)
+      .maybeSingle();
+    if (fetchErr) { showMsg(fetchErr.message, "error"); return; }
+
+    if (existing) {
+      currentReview = existing;
+    } else {
+      const { data: created, error: createErr } = await supabaseClient
+        .from("yearly_review")
+        .insert({ member_id: currentMember.member_id, year })
+        .select()
+        .single();
+      if (createErr) { showMsg(createErr.message, "error"); return; }
+      currentReview = created;
+    }
+
+    populateDetail();
+    document.getElementById("detail").style.display = "block";
+    showMsg(`Loaded ${year}.`, "success");
+  });
+
+  function populateDetail() {
+    document.getElementById("year-goal").value = currentReview.year_goal || "";
+    document.getElementById("review-date").value = currentReview.review_date || "";
+    document.getElementById("t-contacts").value = currentReview.total_contacts ?? "";
+    document.getElementById("t-pres").value = currentReview.total_presentations ?? "";
+    document.getElementById("t-customers").value = currentReview.total_new_customers ?? "";
+    document.getElementById("t-team").value = currentReview.total_new_team_members ?? "";
+    document.getElementById("t-reorders").value = currentReview.total_reorders ?? "";
+    document.getElementById("t-teamsize").value = currentReview.total_team_size_end_of_year ?? "";
+    document.getElementById("t-monthly-income").value = currentReview.monthly_residual_income ?? "";
+    document.getElementById("t-downline").value = currentReview.downline_build_results || "";
+    document.getElementById("result-achieved").value = currentReview.result_achieved || "";
+    document.getElementById("goal-status").value = currentReview.goal_status || "";
+    document.getElementById("biggest-win").value = currentReview.single_biggest_win || "";
+    document.getElementById("biggest-challenge").value = currentReview.single_biggest_challenge || "";
+    document.getElementById("lesson-learned").value = currentReview.lesson_learned_commitment || "";
+    document.getElementById("real-goal-check").value = currentReview.real_goal_check_text || "";
+    document.getElementById("still-on-track").checked = !!currentReview.still_on_track;
+  }
+
+  document.getElementById("save-btn").addEventListener("click", async () => {
+    if (!currentReview) return;
+    const updates = {
+      year_goal: document.getElementById("year-goal").value,
+      review_date: document.getElementById("review-date").value || null,
+      total_contacts: document.getElementById("t-contacts").value || null,
+      total_presentations: document.getElementById("t-pres").value || null,
+      total_new_customers: document.getElementById("t-customers").value || null,
+      total_new_team_members: document.getElementById("t-team").value || null,
+      total_reorders: document.getElementById("t-reorders").value || null,
+      total_team_size_end_of_year: document.getElementById("t-teamsize").value || null,
+      monthly_residual_income: document.getElementById("t-monthly-income").value || null,
+      downline_build_results: document.getElementById("t-downline").value,
+      result_achieved: document.getElementById("result-achieved").value,
+      goal_status: document.getElementById("goal-status").value,
+      single_biggest_win: document.getElementById("biggest-win").value,
+      single_biggest_challenge: document.getElementById("biggest-challenge").value,
+      lesson_learned_commitment: document.getElementById("lesson-learned").value,
+      real_goal_check_text: document.getElementById("real-goal-check").value,
+      still_on_track: document.getElementById("still-on-track").checked,
+    };
+    const { error } = await supabaseClient
+      .from("yearly_review")
+      .update(updates)
+      .eq("review_id", currentReview.review_id);
+    if (error) { showMsg(error.message, "error"); return; }
+    showMsg("Yearly review saved.", "success");
+  });
+</script>
+
+</body>
+</html>

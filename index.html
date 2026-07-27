@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GreatLife Recruiting & Training Portal — Sign In</title>
+<link rel="stylesheet" href="css/style.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<div class="auth-shell">
+  <div class="auth-card">
+    <div class="eyebrow">GreatLife Worldwide</div>
+    <h1 style="margin-bottom: 4px; font-size: 1.4rem;">Recruiting &amp; Training Portal</h1>
+    <p style="color: var(--ink-dim); font-size: 0.9rem; margin-top: 0;">Your goals, your activity, your progress — all in one place.</p>
+
+    <div id="msg-area"></div>
+
+    <form id="signin-form">
+      <label for="email">Email
+        <span class="hint">The email you used to sign up</span>
+      </label>
+      <input type="email" id="email" required autocomplete="email" />
+
+      <label for="password">Password</label>
+      <input type="password" id="password" required autocomplete="current-password" />
+
+      <button type="submit" class="btn full">Sign In</button>
+    </form>
+
+    <p style="text-align:center; margin-top: 18px; font-size: 0.88rem;">
+      New here? <a href="#" id="show-signup">Create your account</a>
+    </p>
+
+    <form id="signup-form" style="display:none;">
+      <label for="full-name">Full Name</label>
+      <input type="text" id="full-name" required autocomplete="name" />
+
+      <label for="signup-email">Email</label>
+      <input type="email" id="signup-email" required autocomplete="email" />
+
+      <label for="signup-password">Password
+        <span class="hint">At least 6 characters</span>
+      </label>
+      <input type="password" id="signup-password" required minlength="6" autocomplete="new-password" />
+
+      <button type="submit" class="btn full">Create Account</button>
+    </form>
+
+    <p style="text-align:center; margin-top: 10px; font-size: 0.88rem; display:none;" id="show-signin-wrap">
+      Already have an account? <a href="#" id="show-signin">Sign in</a>
+    </p>
+  </div>
+</div>
+
+<script src="js/supabase-client.js"></script>
+<script>
+  const msgArea = document.getElementById("msg-area");
+  const signinForm = document.getElementById("signin-form");
+  const signupForm = document.getElementById("signup-form");
+  const showSignupLink = document.getElementById("show-signup");
+  const showSigninLink = document.getElementById("show-signin");
+  const showSigninWrap = document.getElementById("show-signin-wrap");
+
+  function showMsg(text, type) {
+    msgArea.innerHTML = `<div class="msg ${type}">${text}</div>`;
+  }
+
+  showSignupLink.addEventListener("click", (e) => {
+    e.preventDefault();
+    signinForm.style.display = "none";
+    showSignupLink.parentElement.style.display = "none";
+    signupForm.style.display = "block";
+    showSigninWrap.style.display = "block";
+    msgArea.innerHTML = "";
+  });
+
+  showSigninLink.addEventListener("click", (e) => {
+    e.preventDefault();
+    signupForm.style.display = "none";
+    showSigninWrap.style.display = "none";
+    signinForm.style.display = "block";
+    showSignupLink.parentElement.style.display = "block";
+    msgArea.innerHTML = "";
+  });
+
+  // Redirect if already signed in
+  (async () => {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (session) window.location.href = "dashboard.html";
+  })();
+
+  signinForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value;
+    const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    if (error) {
+      showMsg(error.message, "error");
+    } else {
+      window.location.href = "dashboard.html";
+    }
+  });
+
+  signupForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const fullName = document.getElementById("full-name").value.trim();
+    const email = document.getElementById("signup-email").value.trim();
+    const password = document.getElementById("signup-password").value;
+    const { error } = await supabaseClient.auth.signUp({
+      email,
+      password,
+      options: { data: { full_name: fullName } },
+    });
+    if (error) {
+      showMsg(error.message, "error");
+    } else {
+      showMsg("Account created! Check your email to confirm, then sign in.", "success");
+      signupForm.reset();
+    }
+  });
+</script>
+
+</body>
+</html>
