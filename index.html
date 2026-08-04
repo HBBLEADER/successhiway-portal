@@ -6,6 +6,24 @@
 <title>GreatLife Recruiting & Training Portal — Sign In</title>
 <link rel="stylesheet" href="css/style.css" />
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  .pw-wrap { position: relative; }
+  .pw-wrap input { padding-right: 62px; width: 100%; box-sizing: border-box; }
+  .pw-toggle {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--ink-dim, #667);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 4px 6px;
+  }
+  .pw-toggle:hover { text-decoration: underline; }
+</style>
 </head>
 <body>
 
@@ -24,7 +42,10 @@
       <input type="email" id="email" required autocomplete="email" />
 
       <label for="password">Password</label>
-      <input type="password" id="password" required autocomplete="current-password" />
+      <div class="pw-wrap">
+        <input type="password" id="password" required autocomplete="current-password" />
+        <button type="button" class="pw-toggle" data-target="password">Show</button>
+      </div>
 
       <button type="submit" class="btn full">Sign In</button>
     </form>
@@ -40,10 +61,22 @@
       <label for="signup-email">Email</label>
       <input type="email" id="signup-email" required autocomplete="email" />
 
+      <label for="signup-email-confirm">Confirm Email</label>
+      <input type="email" id="signup-email-confirm" required autocomplete="email" onpaste="return false" oncopy="return false" oncut="return false" />
+
       <label for="signup-password">Password
         <span class="hint">At least 6 characters</span>
       </label>
-      <input type="password" id="signup-password" required minlength="6" autocomplete="new-password" />
+      <div class="pw-wrap">
+        <input type="password" id="signup-password" required minlength="6" autocomplete="new-password" />
+        <button type="button" class="pw-toggle" data-target="signup-password">Show</button>
+      </div>
+
+      <label for="signup-password-confirm">Confirm Password</label>
+      <div class="pw-wrap">
+        <input type="password" id="signup-password-confirm" required minlength="6" autocomplete="new-password" onpaste="return false" oncopy="return false" oncut="return false" />
+        <button type="button" class="pw-toggle" data-target="signup-password-confirm">Show</button>
+      </div>
 
       <button type="submit" class="btn full">Create Account</button>
     </form>
@@ -66,6 +99,15 @@
   function showMsg(text, type) {
     msgArea.innerHTML = `<div class="msg ${type}">${text}</div>`;
   }
+
+  document.querySelectorAll(".pw-toggle").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const input = document.getElementById(btn.dataset.target);
+      const isHidden = input.type === "password";
+      input.type = isHidden ? "text" : "password";
+      btn.textContent = isHidden ? "Hide" : "Show";
+    });
+  });
 
   showSignupLink.addEventListener("click", (e) => {
     e.preventDefault();
@@ -107,15 +149,33 @@
     e.preventDefault();
     const fullName = document.getElementById("full-name").value.trim();
     const email = document.getElementById("signup-email").value.trim();
+    const emailConfirm = document.getElementById("signup-email-confirm").value.trim();
     const password = document.getElementById("signup-password").value;
-    const { error } = await supabaseClient.auth.signUp({
+    const passwordConfirm = document.getElementById("signup-password-confirm").value;
+
+    if (email.toLowerCase() !== emailConfirm.toLowerCase()) {
+      showMsg("Those emails don't match — please double-check and try again.", "error");
+      return;
+    }
+
+    if (password !== passwordConfirm) {
+      showMsg("Those passwords don't match — please double-check and try again.", "error");
+      return;
+    }
+
+    const { data, error } = await supabaseClient.auth.signUp({
       email,
       password,
       options: { data: { full_name: fullName } },
     });
     if (error) {
       showMsg(error.message, "error");
+    } else if (data.session) {
+      // Email confirmation is off, so signUp already returned a live session.
+      // Send the new rep straight into the portal instead of back to a login screen.
+      window.location.href = "dashboard.html";
     } else {
+      // Fallback for if email confirmation ever gets turned back on in Supabase.
       showMsg("Account created! Check your email to confirm, then sign in.", "success");
       signupForm.reset();
     }
