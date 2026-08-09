@@ -31,6 +31,16 @@
   <div id="module-list"></div>
 </div>
 
+<div id="pdf-modal-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:1000; align-items:center; justify-content:center;">
+  <div style="background:#fff; width:95%; height:92%; max-width:1100px; border-radius:8px; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 10px 40px rgba(0,0,0,0.4);">
+    <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 16px; background:var(--brass, #b08d57); color:#fff;">
+      <strong id="pdf-modal-title" style="font-size:0.95rem;">Training Lesson</strong>
+      <button id="pdf-modal-close" style="background:none; border:none; color:#fff; font-size:1.4rem; line-height:1; cursor:pointer; padding:4px 8px;">&times;</button>
+    </div>
+    <iframe id="pdf-modal-frame" style="flex:1; border:none; width:100%; height:100%;" title="Training lesson PDF"></iframe>
+  </div>
+</div>
+
 <script src="js/supabase-client.js"></script>
 <script>
   let currentMember = null;
@@ -92,7 +102,7 @@
             <h3 style="margin:2px 0 4px;">${mod.title}</h3>
             ${mod.contains_script ? '<p style="margin:0; font-size:0.82rem; color:var(--ink-dim);">Includes scripts</p>' : ""}
             ${p?.is_priority_for_goal ? `<p style="margin:6px 0 0; font-size:0.85rem; color:var(--brass);"><strong>Sponsor priority:</strong> ${p.priority_reason || "Flagged as relevant to your Real Goal."}</p>` : ""}
-            ${mod.pdf_url ? `<p style="margin:8px 0 0;"><a href="${mod.pdf_url}" target="_blank" rel="noopener">Open lesson${mod.pdf_page_number ? " (p. " + mod.pdf_page_number + ")" : ""}</a></p>` : ""}
+            ${mod.pdf_url ? `<p style="margin:8px 0 0;"><a href="#" class="open-lesson-link" data-pdf-url="${mod.pdf_url}" data-pdf-page="${mod.pdf_page_number || ""}" data-title="${mod.section_number} — ${mod.title}">Open lesson${mod.pdf_page_number ? " (p. " + mod.pdf_page_number + ")" : ""}</a></p>` : ""}
           </div>
           <label style="display:flex; align-items:center; gap:8px; white-space:nowrap; margin:0;">
             <input type="checkbox" data-module-id="${mod.module_id}" ${isDone ? "checked" : ""} style="width:18px; height:18px;" />
@@ -101,6 +111,13 @@
         </div>
       `;
       listEl.appendChild(div);
+    });
+
+    listEl.querySelectorAll(".open-lesson-link").forEach((link) => {
+      link.addEventListener("click", (e) => {
+        e.preventDefault();
+        openPdfModal(link.dataset.pdfUrl, link.dataset.pdfPage, link.dataset.title);
+      });
     });
 
     listEl.querySelectorAll("input[type=checkbox]").forEach((box) => {
@@ -121,6 +138,35 @@
       });
     });
   }
+
+  function openPdfModal(pdfUrl, pageNumber, title) {
+    const overlay = document.getElementById("pdf-modal-overlay");
+    const frame = document.getElementById("pdf-modal-frame");
+    const titleEl = document.getElementById("pdf-modal-title");
+    titleEl.textContent = title || "Training Lesson";
+
+    // PDF.js hosted viewer — sidebar stays closed by default, opens straight
+    // to the correct page, and gives every rep the same clean reading view
+    // regardless of what their device would otherwise open the PDF with.
+    let viewerUrl = "https://mozilla.github.io/pdf.js/web/viewer.html?file=" + encodeURIComponent(pdfUrl);
+    if (pageNumber) {
+      viewerUrl += "#page=" + encodeURIComponent(pageNumber);
+    }
+    frame.src = viewerUrl;
+    overlay.style.display = "flex";
+  }
+
+  function closePdfModal() {
+    const overlay = document.getElementById("pdf-modal-overlay");
+    const frame = document.getElementById("pdf-modal-frame");
+    overlay.style.display = "none";
+    frame.src = "about:blank"; // stop playback/loading when closed
+  }
+
+  document.getElementById("pdf-modal-close").addEventListener("click", closePdfModal);
+  document.getElementById("pdf-modal-overlay").addEventListener("click", (e) => {
+    if (e.target.id === "pdf-modal-overlay") closePdfModal();
+  });
 </script>
 
 </body>
