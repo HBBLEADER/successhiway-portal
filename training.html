@@ -148,7 +148,7 @@
     // PDF.js hosted viewer — sidebar stays closed by default, opens straight
     // to the correct page, and gives every rep the same clean reading view
     // regardless of what their device would otherwise open the PDF with.
-    let viewerUrl = "https://mozilla.github.io/pdf.js/web/viewer.html?file=" + encodeURIComponent(pdfUrl);
+    let viewerUrl = "/pdfjs/web/viewer.html?file=" + encodeURIComponent(pdfUrl);
     if (pageNumber) {
       viewerUrl += "#page=" + encodeURIComponent(pageNumber);
     }
