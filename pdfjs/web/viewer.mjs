@@ -4336,7 +4336,7 @@ const defaultOptions = {
     kind: OptionKind.BROWSER
   },
   annotationEditorMode: {
-    value: 0,
+    value: -1,
     kind: OptionKind.VIEWER + OptionKind.PREFERENCE
   },
   annotationMode: {
