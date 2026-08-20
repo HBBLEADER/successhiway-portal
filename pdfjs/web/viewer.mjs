@@ -3468,6 +3468,11 @@ const PDFViewerApplication = {
 };
 {
   const HOSTED_VIEWER_ORIGINS = ["null", "http://mozilla.github.io", "https://mozilla.github.io"];
+  // GreatLife/SuccessHiway: explicit allowlist of trusted FILE origins (not
+  // viewer origins) that this self-hosted viewer is permitted to load PDFs
+  // from, even though they don't match the viewer's own origin. Scoped only
+  // to our own Supabase Storage project — do not widen this list casually.
+  const ALLOWED_FILE_ORIGINS = ["https://zeslbujpjagrfnqipvji.supabase.co"];
   var validateFileURL = function (file) {
     if (!file) {
       return;
@@ -3478,7 +3483,7 @@ const PDFViewerApplication = {
         return;
       }
       const fileOrigin = new URL(file, window.location.href).origin;
-      if (fileOrigin !== viewerOrigin) {
+      if (fileOrigin !== viewerOrigin && !ALLOWED_FILE_ORIGINS.includes(fileOrigin)) {
         throw new Error("file origin does not match viewer's");
       }
     } catch (ex) {
