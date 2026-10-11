@@ -84,7 +84,7 @@
 
     <div class="card">
       <h2>Contact Log</h2>
-      <table>
+      <table class="stack-on-phone">
         <thead>
           <tr><th>Name</th><th>Date/Time</th><th>Type</th><th>Result</th><th>Follow-Up</th><th></th></tr>
         </thead>
@@ -221,12 +221,12 @@
     data.forEach((row) => {
       const tr = document.createElement("tr");
       tr.innerHTML = `
-        <td>${row.contact_name || ""}</td>
-        <td>${row.date_time ? new Date(row.date_time).toLocaleString() : ""}</td>
-        <td>${row.contact_type || ""}</td>
-        <td>${row.result_response || ""}</td>
-        <td>${row.followup_date || ""}</td>
-        <td><button class="btn secondary" data-log-id="${row.log_id}" style="padding:4px 10px; font-size:0.8rem;">Delete</button></td>
+        <td data-label="Name">${row.contact_name || ""}</td>
+        <td data-label="Date/Time">${row.date_time ? new Date(row.date_time).toLocaleString() : ""}</td>
+        <td data-label="Type">${row.contact_type || ""}</td>
+        <td data-label="Result">${row.result_response || ""}</td>
+        <td data-label="Follow-Up">${row.followup_date || ""}</td>
+        <td class="row-actions"><button class="btn secondary small" data-log-id="${row.log_id}">Delete</button></td>
       `;
       tbody.appendChild(tr);
     });
