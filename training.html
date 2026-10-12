@@ -152,6 +152,15 @@
     if (pageNumber) {
       viewerUrl += "#page=" + encodeURIComponent(pageNumber);
     }
+
+    // Phones: open the lesson in the reading version (text re-wraps to fit the
+    // screen), at this section. Its "Page view" button switches to the PDF page.
+    const sec = /^\s*(section|appendix)\s+([0-9]+|[a-z])\b/i.exec(title || "");
+    if (window.innerWidth <= 600 && sec) {
+      viewerUrl = "/manual-reader.html?pdf=" + encodeURIComponent(pdfUrl) +
+        (pageNumber ? "&page=" + encodeURIComponent(pageNumber) : "") +
+        "#" + sec[1].toLowerCase() + "-" + sec[2].toLowerCase();
+    }
     // replace() loads the lesson without adding extra Back-button steps.
     frame.contentWindow.location.replace(viewerUrl);
     overlay.style.display = "flex";
