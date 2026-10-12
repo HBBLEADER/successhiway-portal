@@ -3893,3 +3893,21 @@ dialog :link{
 #viewBookmark {
   display: none !important;
 }
+
+/* --- SuccessHiway customization: phones and small tablets ---
+   Label the sidebar button "Contents" so readers can find the section list
+   (the Contents panel closes by itself after a section is tapped; see
+   successhiway-phone.js). */
+@media all and (max-width: 840px) {
+  #sidebarToggle {
+    width: auto !important;
+    padding: 0 10px 0 30px !important;
+  }
+  #sidebarToggle::after {
+    content: "Contents";
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 28px;
+    color: var(--main-color);
+  }
+}

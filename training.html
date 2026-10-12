@@ -152,16 +152,49 @@
     if (pageNumber) {
       viewerUrl += "#page=" + encodeURIComponent(pageNumber);
     }
-    frame.src = viewerUrl;
+    // replace() loads the lesson without adding extra Back-button steps.
+    frame.contentWindow.location.replace(viewerUrl);
     overlay.style.display = "flex";
+
+    // One Back-button step for the open lesson: on a phone, Back closes the
+    // lesson and returns to this list instead of leaving the page.
+    if (!(history.state && history.state.pdfModal)) {
+      history.pushState({ pdfModal: true }, "");
+    }
   }
 
-  function closePdfModal() {
+  function hidePdfModal() {
     const overlay = document.getElementById("pdf-modal-overlay");
     const frame = document.getElementById("pdf-modal-frame");
     overlay.style.display = "none";
-    frame.src = "about:blank"; // stop playback/loading when closed
+    frame.contentWindow.location.replace("about:blank"); // stop loading when closed
   }
+
+  // Close button / tap outside: step back, which closes the lesson below.
+  function closePdfModal() {
+    if (history.state && history.state.pdfModal) {
+      history.back();
+    } else {
+      hidePdfModal();
+    }
+  }
+
+  // Page reloaded while a lesson was open: the lesson is gone, so clear its marker.
+  if (history.state && history.state.pdfModal) {
+    history.replaceState(null, "");
+  }
+
+  window.addEventListener("popstate", () => {
+    if (document.getElementById("pdf-modal-overlay").style.display !== "none") {
+      hidePdfModal();
+    }
+  });
+
+  // If the phone restores this page from its back/forward cache, the lesson
+  // viewer has been shut down and looks frozen. Reload so it works again.
+  window.addEventListener("pageshow", (evt) => {
+    if (evt.persisted) window.location.reload();
+  });
 
   document.getElementById("pdf-modal-close").addEventListener("click", closePdfModal);
   document.getElementById("pdf-modal-overlay").addEventListener("click", (e) => {
