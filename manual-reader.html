@@ -93,6 +93,15 @@
   .table-wrap th { background: var(--paper); text-align: left; }
   .table-wrap p { margin: 0; }
 
+  /* "Reading on your phone" tip box — hidden for good after "Got it" */
+  .tips { background: var(--quote-bg); border: 1px solid var(--line); border-left: 4px solid var(--bar);
+    border-radius: 0 8px 8px 0; padding: 12px 14px; margin: 18px 0 0; font-size: 0.85em; line-height: 1.45; }
+  .tips h2 { font-size: 1.05em; margin: 0 0 6px; color: var(--navy); }
+  .tips ul { margin: 0 0 10px; padding-left: 1.15em; }
+  .tips li { margin-bottom: 5px; }
+  .tips button { font: inherit; font-weight: 600; background: var(--bar); color: #fff; border: 0;
+    border-radius: 6px; padding: 8px 16px; min-height: 36px; cursor: pointer; }
+  .tips[hidden] { display: none; }
   .foot { text-align: center; color: var(--ink-dim); font-size: 0.8em; margin-top: 40px; }
 
   @media (min-width: 700px) {
@@ -115,6 +124,17 @@
     <div class="cover">
 <p><em><strong>The Art Of Recruiting</strong></em></p><p><em><strong>and Business Building</strong></em></p><p><em><strong>A Complete Recruiting, Onboarding,</strong></em></p><p><em><strong>and Business Building System</strong></em></p><p><em><strong>Developed exclusively for</strong></em></p><p><em><strong>GreatLife Worldwide Independent Distributors</strong></em></p><p><em><strong>Author: A 50+ Year Successful Network Marketing Veteran</strong></em></p>
     </div>
+
+    <aside class="tips" id="tips" aria-label="How to use on your phone">
+      <h2>Reading on your phone</h2>
+      <ul>
+        <li>Tap a section in <strong>Contents</strong> to jump to it. Tap <strong>▲ Contents</strong> (under each title) or <strong>Contents</strong> in the gold bar to come back.</li>
+        <li><strong>A− / A+</strong> change the text size.</li>
+        <li><strong>Page view</strong> shows the printed pages, for highlighting and printing. <strong>Reading view</strong> comes back here.</li>
+        <li>Worksheets slide sideways with your finger if they're wider than the screen.</li>
+      </ul>
+      <button type="button" id="tipsDone">Got it</button>
+    </aside>
 
     <nav id="contents" aria-label="Contents">
       <h2>Contents</h2>
@@ -1909,6 +1929,14 @@
 <script>
 (function () {
   "use strict";
+  // Tip box: hide it for good on this phone once "Got it" is tapped.
+  var TIPS = "glReaderTipsDone", tips = document.getElementById("tips");
+  try { if (localStorage.getItem(TIPS) === "1") tips.hidden = true; } catch (e) {}
+  document.getElementById("tipsDone").addEventListener("click", function () {
+    tips.hidden = true;
+    try { localStorage.setItem(TIPS, "1"); } catch (e) {}
+  });
+
   // Text size: A− / A+, remembered on this phone when the browser allows it.
   var MIN = 15, MAX = 28, KEY = "glReaderSize";
   var root = document.documentElement;
