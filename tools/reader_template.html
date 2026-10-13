@@ -20,7 +20,7 @@
     --reader-size: 18px;
   }
   * { box-sizing: border-box; }
-  html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+  html { -webkit-text-size-adjust: 100%; }
   body {
     margin: 0; background: var(--paper); color: var(--ink);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
@@ -30,7 +30,7 @@
 
   /* Top bar: one line, always visible */
   .bar {
-    position: sticky; top: 0; z-index: 10;
+    position: fixed; top: 0; left: 0; right: 0; z-index: 10;
     display: flex; align-items: center; gap: 8px;
     background: var(--bar); color: #fff; padding: 8px 12px;
     box-shadow: 0 2px 6px rgba(0,0,0,0.2);
@@ -44,6 +44,8 @@
   }
   .bar .size { padding: 9px 9px; min-width: 36px; justify-content: center; }
 
+  /* The bar is pinned to the top; keep the page from starting underneath it */
+  body { padding-top: 52px; }
   main { max-width: 720px; margin: 0 auto; padding: 0 16px 64px; }
 
   /* Cover */
@@ -80,6 +82,7 @@
   .part li { margin-bottom: 0.35em; }
   .part em strong, .part strong em { color: #1f2b40; }
   .part blockquote { margin: 0 0 0.9em; padding: 10px 14px; background: var(--quote-bg); border-left: 4px solid var(--bar); border-radius: 0 6px 6px 0; }
+  .part pre, .part code { white-space: pre-wrap; font-family: inherit; }
   .part img { max-width: 100%; height: auto; display: block; margin: 12px auto; }
   .part a { color: #8a6a35; }
 

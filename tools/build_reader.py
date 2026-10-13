@@ -95,28 +95,17 @@ def convert(docx):
             if parent and parent.name in ("p", "div") and not clean(parent.get_text()) and not parent.find("img"):
                 parent.decompose()
 
-    # 2. Split into: cover (before first h1), typed TOC (dropped), and sections.
-    cover, sections, current, in_toc = [], [], None, False
-    for node in list(body.children):
-        if isinstance(node, NavigableString):
-            if not node.strip():
-                continue
-        if getattr(node, "name", None) == "h1":
-            in_toc = bool(TOC_RE.match(node.get_text()))
-            if in_toc:
-                current = None
-                continue
-            current = {"h1": node, "nodes": []}
-            sections.append(current)
-            continue
-        if in_toc:
-            continue
-        (current["nodes"] if current else cover).append(node)
+    # 1b. Lines that start with a run of spaces in Word come out of pandoc as
+    #     "code" blocks that never wrap. The manual has no code, so make them
+    #     ordinary paragraphs again.
+    for pre in body.find_all("pre"):
+        p = soup.new_tag("p")
+        p.string = clean(pre.get_text(" "))
+        pre.replace_with(p)
+    for code in body.find_all("code"):
+        code.unwrap()
 
-    if not sections:
-        sys.exit("No Heading 1 sections found — is this the right Word file?")
-
-    # 3. Pictures: copy into manual-reader/ and point <img> there.
+    # 2. Pictures: copy into manual-reader/ and point <img> there.
     if OUT_MEDIA.exists():
         shutil.rmtree(OUT_MEDIA)
     img_map = {}
@@ -136,7 +125,7 @@ def convert(docx):
         if not img.get("alt"):
             img["alt"] = ""
 
-    # 4. Tables: let wide worksheets scroll inside their own box.
+    # 3. Tables: let wide worksheets scroll inside their own box.
     for table in soup.find_all("table"):
         for attr in ("style", "width"):
             table.attrs.pop(attr, None)
@@ -144,6 +133,27 @@ def convert(docx):
             col.decompose()
         wrap = soup.new_tag("div", attrs={"class": "table-wrap"})
         table.wrap(wrap)
+
+    # 4. Split into: cover (before first h1), typed TOC (dropped), and sections.
+    cover, sections, current, in_toc = [], [], None, False
+    for node in list(body.children):
+        if isinstance(node, NavigableString):
+            if not node.strip():
+                continue
+        if getattr(node, "name", None) == "h1":
+            in_toc = bool(TOC_RE.match(node.get_text()))
+            if in_toc:
+                current = None
+                continue
+            current = {"h1": node, "nodes": []}
+            sections.append(current)
+            continue
+        if in_toc:
+            continue
+        (current["nodes"] if current else cover).append(node)
+
+    if not sections:
+        sys.exit("No Heading 1 sections found — is this the right Word file?")
 
     # 5. Build section HTML + Contents list.
     used, toc_items, parts = set(), [], []
